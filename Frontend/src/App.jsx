@@ -17,8 +17,6 @@ const App = () => {
   // State
   const [walletAddress, setWalletAddress] = useState(null);
   const [inputValue, setInputValue] = useState("");
-  const [walletAddress, setWalletAddress] = useState(null);
-  const [inputValue, setInputValue] = useState("");
   const [gifList, setGifList] = useState([]);
 
   // Actions
@@ -69,9 +67,11 @@ const App = () => {
 
   const sendGif = async () => {
     if (inputValue.length > 0) {
-      console.log("Gif link:", inputValue);
+      console.log('Gif link:', inputValue);
+      setGifList([...gifList, inputValue]);
+      setInputValue('');
     } else {
-      console.log("Empty input. Try again.");
+      console.log('Empty input. Try again.');
     }
   };
 
