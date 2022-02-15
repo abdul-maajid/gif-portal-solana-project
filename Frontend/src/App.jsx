@@ -1,17 +1,29 @@
 import React, { useEffect, useState } from "react";
 import twitterLogo from "./assets/twitter-logo.svg";
 import "./App.css";
+import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+import { Program, Provider, web3 } from "@project-serum/anchor";
 
-// Change this up to be your Twitter if you want.
-const TWITTER_HANDLE = "MrAMaajid";
-const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
+import idl from "./idl.json";
 
-const TEST_GIFS = [
-  "https://i.giphy.com/media/eIG0HfouRQJQr1wBzz/giphy.webp",
-  "https://media3.giphy.com/media/L71a8LW2UrKwPaWNYM/giphy.gif?cid=ecf05e47rr9qizx2msjucl1xyvuu47d7kf25tqt2lvo024uo&rid=giphy.gif&ct=g",
-  "https://media4.giphy.com/media/AeFmQjHMtEySooOc8K/giphy.gif?cid=ecf05e47qdzhdma2y3ugn32lkgi972z9mpfzocjj6z1ro4ec&rid=giphy.gif&ct=g",
-  "https://i.giphy.com/media/PAqjdPkJLDsmBRSYUp/giphy.webp",
-];
+// SystemProgram is a reference to the Solana runtime!
+const { SystemProgram, Keypair } = web3;
+
+// Create a keypair for the account that will hold the GIF data.
+let baseAccount = Keypair.generate();
+
+// Get our program's id from the IDL file.
+const programID = new PublicKey(idl.metadata.address);
+
+// Set our network to devnet.
+const network = clusterApiUrl("devnet");
+
+// Controls how we want to acknowledge when a transaction is "done".
+const opts = {
+  preflightCommitment: "processed",
+};
+
+// All your other Twitter and GIF constants you had.
 
 const App = () => {
   // State
@@ -46,6 +58,16 @@ const App = () => {
     }
   };
 
+  const getProvider = () => {
+    const connection = new Connection(network, opts.preflightCommitment);
+    const provider = new Provider(
+      connection,
+      window.solana,
+      opts.preflightCommitment
+    );
+    return provider;
+  };
+
   const connectWallet = async () => {
     const { solana } = window;
 
@@ -67,11 +89,11 @@ const App = () => {
 
   const sendGif = async () => {
     if (inputValue.length > 0) {
-      console.log('Gif link:', inputValue);
+      console.log("Gif link:", inputValue);
       setGifList([...gifList, inputValue]);
-      setInputValue('');
+      setInputValue("");
     } else {
-      console.log('Empty input. Try again.');
+      console.log("Empty input. Try again.");
     }
   };
 
@@ -109,6 +131,45 @@ const App = () => {
     </div>
   );
 
+  const createGifAccount = async () => {
+    try {
+      const provider = getProvider();
+      const program = new Program(idl, programID, provider);
+      console.log("ping");
+      await program.rpc.startStuffOff({
+        accounts: {
+          baseAccount: baseAccount.publicKey,
+          user: provider.wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        },
+        signers: [baseAccount],
+      });
+      console.log(
+        "Created a new BaseAccount w/ address:",
+        baseAccount.publicKey.toString()
+      );
+      await getGifList();
+    } catch (error) {
+      console.log("Error creating BaseAccount account:", error);
+    }
+  };
+
+  const getGifList = async () => {
+    try {
+      const provider = getProvider();
+      const program = new Program(idl, programID, provider);
+      const account = await program.account.baseAccount.fetch(
+        baseAccount.publicKey
+      );
+
+      console.log("Got the account", account);
+      setGifList(account.gifList);
+    } catch (error) {
+      console.log("Error in getGifList: ", error);
+      setGifList(null);
+    }
+  };
+
   // UseEffects
   useEffect(() => {
     const onLoad = async () => {
@@ -121,11 +182,7 @@ const App = () => {
   useEffect(() => {
     if (walletAddress) {
       console.log("Fetching GIF list...");
-
-      // Call Solana program here.
-
-      // Set state
-      setGifList(TEST_GIFS);
+      getGifList();
     }
   }, [walletAddress]);
 
@@ -143,12 +200,12 @@ const App = () => {
         </div>
         <div className="footer-container">
           <img alt="Twitter Logo" className="twitter-logo" src={twitterLogo} />
-          <a
+          {/* <a
             className="footer-text"
             href={TWITTER_LINK}
             target="_blank"
             rel="noreferrer"
-          >{`built on @${TWITTER_HANDLE}`}</a>
+          >{`built on @${TWITTER_HANDLE}`}</a> */}
         </div>
       </div>
     </div>
